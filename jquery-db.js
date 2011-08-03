@@ -143,7 +143,7 @@
 				
 				if ($.isFunction(defaults)) {
 					defaults.apply(this, []);
-				} else if ($.isObject(defaults)) {
+				} else if ($.isPlainObject(defaults)) {
 					this.update(defaults);
 				}
 			}
