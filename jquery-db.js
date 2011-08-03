@@ -1,3 +1,6 @@
+// jquery-db
+// https://github.com/basuke/jquery-db
+
 (function($) {
 	
 	function deferred(context, callback) {
@@ -100,6 +103,10 @@
 			return new this(columns);
 		},
 		
+		deferred: function(callback) {
+			return deferred(this, callback);
+		},
+		
 		find: function(condition, args) {
 			var sql = 'SELECT * FROM ' + this.Table;
 			if (condition) {
@@ -107,8 +114,6 @@
 			}
 			
 			var cls = this;
-			
-			if (this.DB.log) console.log(sql, args);
 			
 			return deferred(this, function(dfd) {
 				return this.DB.execute(sql, args).done(function(tx, result) {
@@ -121,6 +126,8 @@
 						}
 					}
 					
+					if (cls.DB.log) log(entities);
+					
 					dfd.resolve(entities);
 				});
 			});
@@ -128,6 +135,20 @@
 	};
 	
 	var entityInstanceProto = {
+		initialize: function(columns) {
+			if (columns) {
+				this.update(columns);
+			} else {
+				var defaults = this.Class.Defaults;
+				
+				if ($.isFunction(defaults)) {
+					defaults.apply(this, []);
+				} else if ($.isObject(defaults)) {
+					this.update(defaults);
+				}
+			}
+		},
+		
 		isEqual: function(other) {
 			if (!other || this.prototype != other.prototype) return false;
 			
@@ -153,9 +174,16 @@
 			for (var i = 0; i < columns.length; ++i) {
 				var column = columns[i];
 				var value = this[column];
-				if (typeof value == 'boolean') {
-					value = value ? 1 : 0;
+				switch ($.type(value)) {
+					case 'null':
+					case 'undefined':
+						value = null;
+						break;
+					case 'boolean':
+						value = value ? 1 : 0;
+						break;
 				}
+				
 				values.push(value);
 			}
 			
@@ -202,12 +230,16 @@
 					dfd.resolve(me);
 				});
 			});
+		},
+		
+		deferred: function(callback) {
+			return deferred(this, callback);
 		}
 	};
 	
-	$db = $.db = {};
+	var $db;
 	
-	$.extend($db, {
+	$.db = {
 		open: function(options) {
 			if (options === undefined && defaultDb) {
 				return defaultDb;
@@ -221,6 +253,8 @@
 			
 			return db;
 		},
+		
+		entities: {},
 		
 		log: log, 
 		
@@ -250,15 +284,17 @@
 		},
 		
 		defineEntity: function(classProto, instanceProto) {
-			var Entity = function(columns) {
-				if (columns) {
-					this.update(columns);
-				} else {
-					if (this.Defaults) {
-						this.Defaults(this);
-					}
-				}
+			var name = classProto.Table;
+			
+			if ('Name' in classProto && classProto.Name) {
+				name = classProto.Name;
 			}
+			
+			$db.entities[name] = function(columns) {
+				this.initialize.apply(this, arguments);
+			}
+			
+			var Entity = $db.entities[name];
 			
 			// インスタンスメソッド
 			$.extend(Entity.prototype, 
@@ -278,13 +314,11 @@
 				}
 			);
 			
-			if ('Name' in classProto && classProto.Name) {
-				$db[classProto.Name] = Entity;
-			}
-			
 			return Entity;
 		}
-	});
+	};
+	
+	$db = $.db;
 	
 })(jQuery);
 

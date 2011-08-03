@@ -53,7 +53,7 @@ $(function(){
 		
 		$.db.pipe([
 			function() {
-				Sample.DB.execute('DELETE FROM sample')
+				return Sample.DB.execute('DELETE FROM sample')
 			},
 			function() {
 				return s1.save();
