@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
+<script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+
+<script type="text/javascript" src="jquery-db.js"></script>
+
+<script>
+$(function(){
+
+	module('Database');
+	
+	test("Basic database operations", function() {
+		ok(true, 'started');
+		
+		var db = $.db.open();
+		ok(db, 'database opened');
+		
+		equal($.type(db), 'object', 'must be instance of $.Database');
+		ok(db.conn, 'connection established');
+		ok($.isFunction(db.execute), 'make sure I can call execute');
+		
+		// unknown table
+		stop();
+		db.execute('SELECT * FROM foobar')
+			.done(function(tx, result) {
+				ok(false, 'no table "foobar"');
+			})
+			.fail(function(tx, err) {
+				ok(true, 'no table "foobar"');
+			})
+			.always(start);
+	});
+	
+	module('Entity');
+	
+	test('Define entity', function() {
+		var Sample = $.db.defineEntity({
+			Table: 'sample', 
+			Columns: ['id', 'name', 'value']
+		});
+		
+		var s1 = Sample.entity();
+		s1.update({
+			name: 'Taro', 
+			value: 100
+		});
+		
+		stop();
+		
+		$.db.pipe([
+			function() {
+				Sample.DB.execute('DELETE FROM sample')
+			},
+			function() {
+				return s1.save();
+			},
+			function(s1) {
+				ok(true, 'save succeeded');
+				ok(s1.id, 'id was assigned');
+				
+				return Sample.find('WHERE id=?', [s1.id]);
+			},
+			function(entities) {
+				equal(entities.length, 1, '1 entity found');
+				
+				var s2 = entities[0];
+				equal(s2.id, s1.id, 'same entity');
+				
+				s2.name = 'Jiro';
+				return s2.save();
+			},
+			function() {
+				return $.when(
+					Sample.find('WHERE id=?', [s1.id]), 
+					Sample.find('WHERE name LIKE ?', ['Jiro']), 
+					Sample.find('WHERE name LIKE ?', ['Taro'])
+				);
+			},
+			function(result1, result2, result3) {
+				equal(result1.length, 1, '1 entity found');
+				equal(result2.length, 1, '1 entity found');
+				equal(result3.length, 0, '1 entity found');
+				
+				var r1 = result1[0];
+				var r2 = result2[0];
+				
+				equal(r1.id, r2.id, 'same entity');
+				equal(r1.name, 'Jiro', 'name updated');
+				
+				return r1.destroy();
+			},
+			function() {
+				return Sample.find();
+			},
+			function(entities) {
+				equal(entities.length, 0, 'no entities found');
+				ok(true, 'test done');
+			}
+		])
+		.fail(function() {
+			ok(false, 'failed to save new object');
+		})
+		.always(start);
+	});
+	
+});
+</script>
+
+</head>
+<body>
+	<h1 id="qunit-header">QUnit example</h1>
+	
+	<h2 id="qunit-banner"></h2>
+	<div id="qunit-testrunner-toolbar"></div>
+	
+	<h2 id="qunit-userAgent"></h2>
+	<ol id="qunit-tests"></ol>
+	
+	<div id="qunit-fixture">test markup, will be hidden</div>
+</body>
+</html>
