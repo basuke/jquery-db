@@ -74,7 +74,7 @@
 		execute: function(sql, args) {
 			var dfd = $.Deferred();
 			
-			if (this.log) log(sql, args);
+			if (this.log) $.db.log(sql, args);
 			
 			this.conn.transaction(function(tx) {
 				if (!args) args = [];
@@ -86,7 +86,7 @@
 						dfd.resolve(tx, result);
 					},
 					function(tx, err) {
-						error(err);
+						$.db.error(err);
 						dfd.reject(tx, err);
 					}
 				);
@@ -126,7 +126,7 @@
 						}
 					}
 					
-					if (cls.DB.log) log(entities);
+					if (cls.DB.log) $.db.log(entities);
 					
 					dfd.resolve(entities);
 				});
